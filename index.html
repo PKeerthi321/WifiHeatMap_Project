@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WiFi Heatmap Pro</title>
+
+    <style>
+        body {
+            text-align: center;
+            font-family: Arial;
+            background: #f4f6f8;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            margin-top: 20px;
+        }
+
+        .legend {
+            width: 500px;
+            height: 20px;
+            margin: 20px auto;
+            background: linear-gradient(to right, blue, cyan, green, yellow, red);
+        }
+
+        .labels {
+            width: 500px;
+            margin: auto;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h2>📶 Live WiFi Heatmap (Pro)</h2>
+
+<canvas id="heatmap" width="500" height="500"></canvas>
+
+<div class="legend"></div>
+<div class="labels">
+    <span>Weak (-100 dBm)</span>
+    <span>Strong (-30 dBm)</span> 
+</div>
+
+<script>
+const canvas = document.getElementById("heatmap");
+const ctx = canvas.getContext("2d");
+
+// Fetch backend data
+async function fetchData() {
+    const res = await fetch('/data');
+    return await res.json();
+}
+
+// 🔥 Smooth gradient color
+function getColor(value) {
+    let t = (value + 100) / 70;
+
+    t = Math.max(0, Math.min(1, t));
+
+    let r, g, b;
+
+    if (t < 0.25) {         // Blue → Cyan
+        r = 0;
+        g = 255 * (t / 0.25);
+        b = 255;
+    } 
+    else if (t < 0.5) {     // Cyan → Green
+        r = 0;
+        g = 255;
+        b = 255 * (1 - (t - 0.25) / 0.25);
+    } 
+    else if (t < 0.75) {    // Green → Yellow
+        r = 255 * ((t - 0.5) / 0.25);
+        g = 255;
+        b = 0;
+    } 
+    else {                  // Yellow → Red
+        r = 255;
+        g = 255 * (1 - (t - 0.75) / 0.25);
+        b = 0;
+    }
+
+    return `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+}
+
+// Draw heatmap
+async function drawHeatmap() {
+    const data = await fetchData();
+
+    const rows = data.length;
+    const cols = data[0].length;
+
+    const cellWidth = canvas.width / cols;
+    const cellHeight = canvas.height / rows;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+
+            let value = data[y][x];
+
+            ctx.fillStyle = getColor(value);
+            ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+
+            // Grid lines
+            ctx.strokeStyle = "#222";
+            ctx.strokeRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
+
+            // Value text
+            ctx.fillStyle = "black";
+            ctx.font = "10px Arial";
+            ctx.fillText(value, x * cellWidth + 5, y * cellHeight + 15);
+        }
+    }
+}
+
+// Auto update
+setInterval(drawHeatmap, 2000);
+drawHeatmap();
+</script>
+
+</body>
+</html>
